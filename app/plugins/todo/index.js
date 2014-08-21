@@ -29,7 +29,13 @@ function define_controller(){
   angular.module('foundry').controller('TodoController', ['$scope', function($scope){
     $scope.todos = [];
     // get a reference with the model we registered above
-    todo_model = foundry._models.Todo
+    todo_model = foundry._models.Todo;
+    todo_model.onUpdate(function(mode, obj, isLocal){
+      if (!isLocal) {
+        $scope.load();
+        $scope.$apply();
+      };
+    });
 
     $scope.load = function(){
         $scope.todos = todo_model.all()
