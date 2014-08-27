@@ -7,7 +7,6 @@ module.exports = function(grunt) {
   'forum/plugins/forum/index.coffee',
   'forum/app.coffee',
   'core/directives/directives.coffee' 
-
   ]
   coffeeForCompile = coffeeFiles.reduce(function (pre, current, idx) {
     pre[current.replace(/coffee/,"js")] = current;
@@ -26,42 +25,17 @@ module.exports = function(grunt) {
       },
       core : {
         src : [
-          'core/core.js',
-          'core/plugins/document/*.js',
-          'core/plugins/user/*.js',
-          'core/plugins/workspace/*.js',
-          'core/directives/*.js',
-          'core/filters/*.js'
+          'app/app.js',
+          'app/plugins/todo/*.js'
         ],
-        dest : 'dist/core.js'
+        dest : 'dist/app.js'
       },
       dist: {
         src: [
-              'vendor/base64utils.js',
-              'vendor/jquery.min.js',
-              'vendor/underscore-min.js',
-              'vendor/moment.min.js',
-              'vendor/angular.min.js',
-              'vendor/angular-sanitize.min.js',
-              'vendor/angular-route.js',
-              'vendor/spinjs/spin.js',
-              'vendor/iosOverlay.min.js',
-              'vendor/nimbus.min.js',
-              'vendor/require.js',
-              'vendor/dialog.js',
-              'vendor/bootstrap.js',
-              'vendor/bootstrap-tab.js',
-              'vendor/bootbox.min.js',
-              'vendor/bootstrap-wysihtml5/js/wysihtml5-0.3.0.min.js',
-              'vendor/bootstrap-wysihtml5/js/bootstrap-wysihtml5.js',
-              'vendor/bootstrap-wysihtml5/js/custom_image_and_upload_wysihtml5.js',
-              'vendor/ngDialog/js/ngDialog.min.js',
-              'vendor/ui-bootstrap/*.js',
-              'dist/mailComposer.min.js',
-              // 'dist/app.js',
-              'dist/core.js'
+              'dist/main.js',
+              'dist/app.js',
               ],
-        dest: 'dist/main.js'
+        dest: 'dist/default.js'
       }
     },
     uglify: {
@@ -115,48 +89,8 @@ module.exports = function(grunt) {
         options: {
           spawn: false,
         }
-      },
-      js: {
-        files: [
-          'vendor/bootstrap-wysihtml5/js/custom_image_and_upload_wysihtml5.js',
-          'vendor/bootstrap-wysihtml5/js/wysihtml5-0.3.0.min.js'
-          ],
-        tasks: ['concat'],
-        options: {
-          spawn: false,
-        }
       }
-    },
-    cssmin: {
-         options: {
-             keepSpecialComments: 0
-         },
-         compress: {
-             files: {
-                 'dist/css/default.css': [
-                    "assets/bootstrap/css/bootstrap.min.css",
-                    "assets/fontawesome/css/font-awesome.min.css",
-                    "assets/icheck/skins/square/square.css", 
-                    "assets/css/styles.css",
-                    "assets/jasny-bootstrap/css/jasny-bootstrap.min.css",
-                    "vendor/dialogs.css",
-                    "vendor/iosOverlay.css",
-                    "vendor/bootstrap-tagsinput/bootstrap-tagsinput.css",
-                    "vendor/ngDialog/css/ngDialog.css",
-                    "vendor/ngDialog/css/ngDialog-theme-default.css",
-                    "vendor/ng-tags-input/ng-tags-input.css",
-                    "vendor/bootstrap-wysihtml5/css/bootstrap-wysihtml5.css",
-                    "assets/calendar/zabuto_calendar.css",
-                    "vendor/fullcalendar/fullcalendar.css"
-                 ]
-             }
-         }
-     },
-     coffee: {
-      jason: {
-        files: coffeeForCompile
-      }
-    },
+    }
   });
 
   // These plugins provide necessary tasks.
@@ -171,6 +105,6 @@ module.exports = function(grunt) {
   // Default task.
   grunt.registerTask('default', ['jshint', 'nodeunit', 'concat', 'uglify']);
 
-  grunt.registerTask('build', ['concat', 'uglify','cssmin']);
+  grunt.registerTask('build', ['concat', 'uglify']);
 
 };
