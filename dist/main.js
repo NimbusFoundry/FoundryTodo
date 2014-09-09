@@ -25921,7 +25921,7 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
       return gapi.auth.authorize({
         client_id: Nimbus.Auth.key,
         scope: Nimbus.Auth.scope,
-        immediate: false,
+        immediate: true,
         authuser: localStorage.authuser || 0
       }, function(data) {
         return console.log('authorize the app after error');
@@ -25965,6 +25965,9 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
         log("index", i);
         if (i.length > 0) {
           log("file there");
+          if (workspace==0) {
+            delete localStorage.last_opened_workspace;
+          };
           c_file = i[workspace];
           window.c_file = c_file;
           return gapi.drive.realtime.load(c_file.id, onFileLoaded, initializeModel, handleErrors);
@@ -26419,7 +26422,8 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
         client_id: client_id,
         scope: scopes,
         immediate: false,
-        authuser: localStorage.authuser || 0
+        authuser: localStorage.authuser || 0,
+        prompt: 'select_account'
       }, callback);
     },
     insertFile: function(content, title, contentType, parent, callback, properties) {
@@ -26451,17 +26455,28 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
           return log("Update Complete ", file);
         };
       }
-      params = {
-        path: "/upload/drive/v2/files",
-        method: "POST",
-        params: {
-          uploadType: "multipart"
-        },
-        headers: {
-          "Content-Type": "multipart/mixed; boundary=\"" + boundary + "\""
-        },
-        body: multipartRequestBody
-      };
+      if (content) {
+        params = {
+          path: "/upload/drive/v2/files",
+          method: "POST",
+          params: {
+            uploadType: "multipart"
+          },
+          headers: {
+            "Content-Type": "multipart/mixed; boundary=\"" + boundary + "\""
+          },
+          body: multipartRequestBody
+        };
+      } else {
+        params = {
+          path: "/drive/v2/files",
+          method: "POST",
+          body: {
+            'title': title,
+            'mimeType': contentType
+          }
+        };
+      }
       return this.make_request(params, callback);
     },
     deleteFile: function(file_id, callback) {
@@ -26772,7 +26787,8 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
             perm = {
               id: p.id,
               name: p.name,
-              role: p.role
+              role: p.role,
+              email: p.emailAddress
             };
             if (p.photoLink != null) {
               perm["pic"] = p.photoLink;
@@ -27562,7 +27578,7 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
           return gapi.auth.authorize({
             client_id: this.key,
             scope: this.scope,
-            immediate: false,
+            immediate: true,
             authuser: localStorage.authuser || 0
           }, (function(_this) {
             return function(data) {
@@ -27619,7 +27635,7 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
             return gapi.auth.authorize({
               client_id: Nimbus.Auth.key,
               scope: Nimbus.Auth.scope,
-              immediate: false,
+              immediate: true,
               authuser: localStorage.authuser || 0
             }, function(data) {
               return console.log('token refreshed');
@@ -43273,36 +43289,6 @@ window.foundry = core;
             foundry._current_owner = user;
           }
         }
-        this.get_user_plan(function(plan) {
-          var expired, limit, msg, plan_type, status, type;
-          console.log('plan : ', plan);
-          limit = [10, 25, 50];
-          plan_type = [0, 1, 2, 3];
-          type = 0;
-          expired = false;
-          status = 1;
-          if (plan) {
-            type = Number(plan.order.type);
-            expired = moment(plan.order.date).add('y', 1) < moment.valueOf();
-            status = plan.order.status;
-          }
-          if (foundry._current_user.id !== foundry._current_owner.id) {
-            return;
-          }
-          if (status === 0) {
-            msg = '<div style="padding:20px">Your subscription is canceled, Please repurchase it.</div>';
-            return self.alert_for_upgrade(msg);
-          } else if (expired) {
-            msg = '<div style="padding:20px">Your subscription is expired, Please update it.</div>';
-            return self.alert_for_upgrade(msg);
-          } else {
-            if (type === 3) {
-              return console.log('ultimate plan');
-            } else if (user_model.all().length > limit[type]) {
-              return self.alert_for_upgrade();
-            }
-          }
-        });
         return inject_controller();
       },
       check_users: function() {
@@ -43346,7 +43332,6 @@ window.foundry = core;
             if (pid === foundry._current_user.id) {
               data.email = window.user_email;
             }
-            data.debug = user_email + ':' + 'time: ' + new Date() + JSON.stringify(foundry._models.User.all());
             user_model.create(data);
             user.roleName = data.role;
           }
@@ -43460,58 +43445,6 @@ window.foundry = core;
         return recipients;
       },
       user_plan: null,
-      get_user_plan: function(callback) {
-        var self, url;
-        self = this;
-        url = "http://192.241.167.76:4000/order/" + foundry._current_owner.id + "/" + foundry._current_owner.email;
-        return $.ajax({
-          'url': url,
-          success: function(data) {
-            var user;
-            if (data) {
-              user = data;
-              self.user_plan = foundry._owner_plan = Number(user.order.type);
-            } else {
-              user = false;
-              self.user_plan = foundry._owner_plan = 0;
-            }
-            if (callback) {
-              return callback(user);
-            }
-          }
-        });
-      },
-      user_limit: function(callback) {
-        var can_create_user, plan_limit, self;
-        plan_limit = [10, 25, 50];
-        self = this;
-        can_create_user = function(current_type) {
-          var limit;
-          current_type = Number(current_type);
-          if (current_type === 3) {
-            return true;
-          } else {
-            limit = plan_limit[current_type];
-            return self._models['user'].all().length < limit;
-          }
-        };
-        this.get_user_plan(function(user) {
-          var order, result;
-          if (user) {
-            order = user.order;
-            self.user_plan = order.type;
-            if (order.status === 0) {
-              self.user_plan = 0;
-            }
-          } else {
-            self.user_plan = 0;
-          }
-          result = can_create_user(self.user_plan);
-          if (callback) {
-            return callback(result);
-          }
-        });
-      },
       alert_for_upgrade: function(msg) {
         if (!msg) {
           msg = "<div style='padding:20px 10px;'>Your user amount has exceeded the plan your've purchased. You need to upgrade to a higher plan.</div>";
@@ -43636,17 +43569,12 @@ window.foundry = core;
             $('.create_button').removeClass('disabled');
             return $scope.creating_user = false;
           };
-          user_model.user_limit(function(reuslt) {
-            if (reuslt) {
-              $('.create_button').addClass('disabled');
-              return user_model.add_user($scope.user_data, function() {
-                return reset();
-              });
-            } else {
-              reset();
-              user_model.alert_for_upgrade();
-            }
+          
+          $('.create_button').addClass('disabled');
+          return user_model.add_user($scope.user_data, function() {
+            return reset();
           });
+           
         };
         $scope.user_info = {};
         $scope.show_user = function(id) {
