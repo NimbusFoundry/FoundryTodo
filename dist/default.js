@@ -1,6 +1,4 @@
 
-/* Array of bytes to base64 string decoding */
-
 function b64ToUint6 (nChr) {
 
   return nChr > 64 && nChr < 91 ?
@@ -25347,14 +25345,14 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
       return this.fetch(this.proxy(this.loadLocal));
     },
     async_doc_setup: function() {
-      if (Nimbus.Auth.app_name) {
+      if (!window._indexdb && Nimbus.Auth.app_name) {
         window._indexdb = new PouchDB(Nimbus.Auth.app_name);
         Nimbus.Storage = {};
         Nimbus.is_async_done = false;
         _indexdb.allDocs({
           include_docs: true
         }, function(err, response) {
-          var doc, model, one, rows, _i, _len;
+          var doc, one, rows, _i, _len;
           if (!err) {
             rows = response.rows;
             for (_i = 0, _len = rows.length; _i < _len; _i++) {
@@ -25365,11 +25363,6 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
                   Nimbus.Storage[doc['type']] = [];
                 }
                 Nimbus.Storage[doc['type']].push(JSON.parse(doc.data));
-              }
-            }
-            for (model in Nimbus.dictModel) {
-              if (model && Nimbus.Storage[model]) {
-                Nimbus.dictModel[model].refresh(Nimbus.Storage[model]);
               }
             }
             return Nimbus.is_async_done = true;
@@ -25441,7 +25434,7 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
       }
       self = this;
       db = window._indexdb;
-      name = self.name;
+      name = self.type;
       if (Nimbus.is_async_done) {
         if (Nimbus.Storage[name]) {
           self.refresh(Nimbus.Storage[name]);
@@ -25970,9 +25963,6 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
         log("index", i);
         if (i.length > 0) {
           log("file there");
-          if (workspace==0) {
-            delete localStorage.last_opened_workspace;
-          };
           c_file = i[workspace];
           window.c_file = c_file;
           return gapi.drive.realtime.load(c_file.id, onFileLoaded, initializeModel, handleErrors);
@@ -26460,28 +26450,17 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
           return log("Update Complete ", file);
         };
       }
-      if (content) {
-        params = {
-          path: "/upload/drive/v2/files",
-          method: "POST",
-          params: {
-            uploadType: "multipart"
-          },
-          headers: {
-            "Content-Type": "multipart/mixed; boundary=\"" + boundary + "\""
-          },
-          body: multipartRequestBody
-        };
-      } else {
-        params = {
-          path: "/drive/v2/files",
-          method: "POST",
-          body: {
-            'title': title,
-            'mimeType': contentType
-          }
-        };
-      }
+      params = {
+        path: "/upload/drive/v2/files",
+        method: "POST",
+        params: {
+          uploadType: "multipart"
+        },
+        headers: {
+          "Content-Type": "multipart/mixed; boundary=\"" + boundary + "\""
+        },
+        body: multipartRequestBody
+      };
       return this.make_request(params, callback);
     },
     deleteFile: function(file_id, callback) {
@@ -26662,7 +26641,6 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
           log("Add Share user Complete ", person);
           p = {
             id: person.id,
-            email: person.emailAddress,
             name: person.name,
             role: person.role
           };
@@ -26700,7 +26678,6 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
           p = {
             id: person.id,
             name: person.name,
-            email: person.emailAddress,
             role: person.role
           };
           if (person.photoLink != null) {
@@ -26794,8 +26771,7 @@ return t.name="invalid_value",t.status=500,t}function u(e){for(var t=0,n=0,r=e.l
             perm = {
               id: p.id,
               name: p.name,
-              role: p.role,
-              email: p.emailAddress
+              role: p.role
             };
             if (p.photoLink != null) {
               perm["pic"] = p.photoLink;
@@ -43296,6 +43272,36 @@ window.foundry = core;
             foundry._current_owner = user;
           }
         }
+        this.get_user_plan(function(plan) {
+          var expired, limit, msg, plan_type, status, type;
+          console.log('plan : ', plan);
+          limit = [10, 25, 50];
+          plan_type = [0, 1, 2, 3];
+          type = 0;
+          expired = false;
+          status = 1;
+          if (plan) {
+            type = Number(plan.order.type);
+            expired = moment(plan.order.date).add('y', 1) < moment.valueOf();
+            status = plan.order.status;
+          }
+          if (foundry._current_user.id !== foundry._current_owner.id) {
+            return;
+          }
+          if (status === 0) {
+            msg = '<div style="padding:20px">Your subscription is canceled, Please repurchase it.</div>';
+            return self.alert_for_upgrade(msg);
+          } else if (expired) {
+            msg = '<div style="padding:20px">Your subscription is expired, Please update it.</div>';
+            return self.alert_for_upgrade(msg);
+          } else {
+            if (type === 3) {
+              return console.log('ultimate plan');
+            } else if (user_model.all().length > limit[type]) {
+              return self.alert_for_upgrade();
+            }
+          }
+        });
         return inject_controller();
       },
       check_users: function() {
@@ -43339,6 +43345,7 @@ window.foundry = core;
             if (pid === foundry._current_user.id) {
               data.email = window.user_email;
             }
+            data.debug = user_email + ':' + 'time: ' + new Date() + JSON.stringify(foundry._models.User.all());
             user_model.create(data);
             user.roleName = data.role;
           }
@@ -43452,6 +43459,58 @@ window.foundry = core;
         return recipients;
       },
       user_plan: null,
+      get_user_plan: function(callback) {
+        var self, url;
+        self = this;
+        url = "http://192.241.167.76:4000/order/" + foundry._current_owner.id + "/" + foundry._current_owner.email;
+        return $.ajax({
+          'url': url,
+          success: function(data) {
+            var user;
+            if (data) {
+              user = data;
+              self.user_plan = foundry._owner_plan = Number(user.order.type);
+            } else {
+              user = false;
+              self.user_plan = foundry._owner_plan = 0;
+            }
+            if (callback) {
+              return callback(user);
+            }
+          }
+        });
+      },
+      user_limit: function(callback) {
+        var can_create_user, plan_limit, self;
+        plan_limit = [10, 25, 50];
+        self = this;
+        can_create_user = function(current_type) {
+          var limit;
+          current_type = Number(current_type);
+          if (current_type === 3) {
+            return true;
+          } else {
+            limit = plan_limit[current_type];
+            return self._models['user'].all().length < limit;
+          }
+        };
+        this.get_user_plan(function(user) {
+          var order, result;
+          if (user) {
+            order = user.order;
+            self.user_plan = order.type;
+            if (order.status === 0) {
+              self.user_plan = 0;
+            }
+          } else {
+            self.user_plan = 0;
+          }
+          result = can_create_user(self.user_plan);
+          if (callback) {
+            return callback(result);
+          }
+        });
+      },
       alert_for_upgrade: function(msg) {
         if (!msg) {
           msg = "<div style='padding:20px 10px;'>Your user amount has exceeded the plan your've purchased. You need to upgrade to a higher plan.</div>";
@@ -43576,12 +43635,17 @@ window.foundry = core;
             $('.create_button').removeClass('disabled');
             return $scope.creating_user = false;
           };
-          
-          $('.create_button').addClass('disabled');
-          return user_model.add_user($scope.user_data, function() {
-            return reset();
+          user_model.user_limit(function(reuslt) {
+            if (reuslt) {
+              $('.create_button').addClass('disabled');
+              return user_model.add_user($scope.user_data, function() {
+                return reset();
+              });
+            } else {
+              reset();
+              user_model.alert_for_upgrade();
+            }
           });
-           
         };
         $scope.user_info = {};
         $scope.show_user = function(id) {
@@ -44615,3 +44679,124 @@ angular.module('enterpise-ui').filter('utc_date', function() {
     return out;
   };
 });
+
+
+// Generated by CoffeeScript 1.7.1
+(function() {
+  if (localStorage["version"] == null) {
+    localStorage["version"] = "google";
+    window.location.reload();
+  }
+
+  foundry.angular.dependency = [];
+
+  define('config', function() {
+    var config;
+    config = {};
+    config.appName = 'FoundryTodo';
+    config.plugins = {
+      Todo: 'app/plugins/todo',
+      user: 'core/plugins/user',
+      workspace: 'core/plugins/workspace'
+    };
+    return config;
+  });
+
+  foundry.load_plugins();
+
+  Nimbus.Auth.setup({
+    'GDrive': {
+      'app_id': '696230129324',
+      'key': '696230129324-k4g89ugcu02k5obu9hs1u5tp3e54n02u.apps.googleusercontent.com',
+      "scope": "openid https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/plus.me https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://apps-apis.google.com/a/feeds/domain/"
+    },
+    "app_name": "FoundryTodo",
+    'synchronous': false
+  });
+
+  Nimbus.Auth.authorized_callback = function() {
+    if (Nimbus.Auth.authorized()) {
+      return $("#login_buttons").addClass("redirect");
+    }
+  };
+
+  foundry.ready(function() {
+    if (Nimbus.Auth.authorized()) {
+      foundry.init(function() {
+        $('#loading').addClass('loaded');
+        return $("#login_buttons").removeClass("redirect");
+      });
+    }
+  });
+
+  $(document).ready(function() {
+    $('#google_login').on('click', function(evt) {
+      if (!(localStorage["version"] === "google")) {
+        localStorage["version"] = "google";
+        window.location.reload();
+      }
+      return Nimbus.Auth.authorize('GDrive');
+    });
+    $('.logout_btn').on('click', function(evt) {
+      foundry.logout();
+      return location.reload();
+    });
+  });
+
+}).call(this);
+
+define('Todo', function(){
+  return {
+    title : 'Todo', // this will shown as the menu title
+    name : 'Todo', // Foundry will add an object with this name, so you can access with it.
+    type : 'plugin',
+    anchor : '#/Todo', // this property is for angular route
+    icon : 'icon-list',
+    init : function(){
+      // a basic method for foundry to init your plugin
+      // we will setup a model here
+      var self = this;
+      foundry.model('Todo', ['title','completed'], function(model){
+        // this callback will return the model being created
+        // then you need to make this call to tell foundery 
+        // the current plugin is finished loading and ready
+        foundry.initialized(self.name);
+      });
+    },
+    inited : function(){ 
+       // inited is an optinal method
+       // it will be called when all other plugin is loaded
+       define_controller();
+    }
+  } 
+});
+
+// maybe some code for angular controller
+function define_controller(){
+  angular.module('foundry').controller('TodoController', ['$scope', function($scope){
+    $scope.todos = [];
+    // get a reference with the model we registered above
+    todo_model = foundry._models.Todo
+
+    $scope.load = function(){
+        $scope.todos = todo_model.all()
+    }
+
+    $scope.add_todo = function(){
+        todo_model.create({title:$scope.todo_title,completed:false});
+
+        $scope.load();
+        $scope.todo_title = '';
+    }
+
+    $scope.delete_todo = function(index){
+        var id = $scope.todos[index].id,
+            todo =todo_model.findByAttribute('id', id);
+
+        todo.destroy();
+        $scope.load();
+    }
+
+    $scope.load();
+  }]);
+}
